@@ -23,6 +23,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = 'cnwu)=j8md5-*47as)zxd)z3r0-+y51agif9vvwp3%6e#$%r@9'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+
+# for some reason I could only get the static files working locally 
+# when the static folder was in /lazors/static/ so move the static 
+# folder when you want to test for now or figure out why this is.
 DEBUG = False
 
 ALLOWED_HOSTS = []
@@ -62,9 +66,12 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
-import os
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STATIC_URL = '/static/'
+if(DEBUG): 
+    STATIC_URL = '/static/'
+else: 
+    STATIC_URL = '/lazors/static/'
+
+# on server, run collectstatic with DEBUG = False and the static files will be placed in here. 
 STATIC_ROOT = '/home/lazors/static/'
 
 
