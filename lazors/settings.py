@@ -27,9 +27,9 @@ SECRET_KEY = 'cnwu)=j8md5-*47as)zxd)z3r0-+y51agif9vvwp3%6e#$%r@9'
 # for some reason I could only get the static files working locally 
 # when the static folder was in /lazors/static/ so move the static 
 # folder when you want to test for now or figure out why this is.
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['lazors.org']
 
 
 # Application definition
@@ -46,6 +46,26 @@ INSTALLED_APPS = [
 
 ROOT_URLCONF = 'lazors.urls'
 
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [os.path.join(BASE_DIR, 'lazors/templates')],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.contrib.auth.context_processors.auth',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.i18n',
+                'django.template.context_processors.media',
+                'django.template.context_processors.request',
+                'django.template.context_processors.static',
+                'django.template.context_processors.tz',
+                'django.contrib.messages.context_processors.messages',
+                "sekizai.context_processors.sekizai",
+            ],
+        },
+    },
+]
 
 WSGI_APPLICATION = 'lazors.wsgi.application'
 
@@ -66,13 +86,16 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
-if(DEBUG): 
-    STATIC_URL = '/static/'
-else: 
-    STATIC_URL = '/lazors/static/'
+STATIC_URL = '/static/'
 
 # on server, run collectstatic with DEBUG = False and the static files will be placed in here. 
-STATIC_ROOT = '/home/lazors/static/'
+#STATIC_ROOT = '/home/lazors/static/'
+if (DEBUG):
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, "static")
+    ]
+else:
+    STATIC_ROOT = '/home/csciclub/lazors.org/static'
 
 
 CHANNEL_LAYERS = {
