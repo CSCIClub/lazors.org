@@ -1,5 +1,6 @@
 lazors/settings.py
 _site
+*.pyc
 
 # Windows image file caches
 Thumbs.db
