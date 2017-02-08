@@ -15,21 +15,34 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.9/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'cnwu)=j8md5-*47as)zxd)z3r0-+y51agif9vvwp3%6e#$%r@9'
+DEFAULT_DEV_KEY = 'cnwu)=j8md5-*47as)zxd)z3r0-+y51agif9vvwp3%6e#$%r@9'
 
-# SECURITY WARNING: don't run with debug turned on in production!
+_environment = os.environ.get('APP_ENV', "DEVELOPMENT")
+if _environment == "DEVELOPMENT":
+    from .development import *
+elif _environment == "PRODUCTION":
+    from .production import *
+elif _environment == "TESTING":
+    from .testing import *
+else:
+    from .development import *
 
-# for some reason I could only get the static files working locally 
-# when the static folder was in /lazors/static/ so move the static 
-# folder when you want to test for now or figure out why this is.
-DEBUG = True
 
-ALLOWED_HOSTS = ['lazors.org']
+# # SECURITY WARNING: keep the secret key used in production secret!
+# SECRET_KEY = env.SECRET_KEY
+
+# # SECURITY WARNING: don't run with debug turned on in production!
+
+# # for some reason I could only get the static files working locally
+# # when the static folder was in /lazors/static/ so move the static
+# # folder when you want to test for now or figure out why this is.
+# DEBUG = env.DEBUG
+
+# # ALLOWED_HOSTS = ['lazors.org']
+# ALLOWED_HOSTS = env.ALLOWED_HOSTS
 
 
 # Application definition
@@ -49,7 +62,7 @@ ROOT_URLCONF = 'lazors.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [os.path.join(BASE_DIR, 'lazors/templates')],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
