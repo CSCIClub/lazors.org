@@ -1,91 +1,94 @@
 const static_root = "static/spacegame/";
-var started = false;
-var nameChosen = false;
-var playerDead = false;
-var canRespawn = false;
-var myID;
-var myName;
-var players = {};
-var tag_divs = {};
-var last_state;
-var plog_list = [];
-var playerIDs = {};
-var connected = false;
-var boundaryRadius = 2000;
-var connectionAccepted = false;
-var respawning = false;
-var shotsFired = {};
+
+const BOUNDRY_RADIUS = 2000;
+const state = {
+  started: false,
+  nameChosen: false,
+  playerDead: false,
+  canRespawn: false,
+  myID: 0,
+  myName: '',
+  players: {},
+  tagDivs: {},
+  lastState: {},
+  toastQueue: [],
+  playerIDs: {},
+  connected: false,
+  connectionAccepted: false,
+  respawning: false,
+  shotsFired: {}
+};
 
 socket = new WebSocket("ws://" + window.location.host + "/spacegame/");
 socket.onmessage = function(e) {
   var data = JSON.parse(e.data);
   switch (data.type) {
     case "connection accepted":
-      myID = data.player_state.id;
-      connectionAccepted = true;
+      state.myID = data.player_state.id;
+      state.connectionAccepted = true;
       break;
     case "player connect":
-      plog_list.push(data.player + ' connected');
+      state.toastQueue.push(data.player + ' connected');
       setTimeout(function() {
-        plog_list.shift();
+        state.toastQueue.shift();
       }, 5000);
       break;
     case "player disconnect":
-      plog_list.push(data.player + ' disconnected');
+      state.toastQueue.push(data.player + ' disconnected');
       setTimeout(function() {
-        plog_list.shift();
+        state.toastQueue.shift();
       }, 5000);
       break;
     case "update":
 
       for (var id in data.gamestate.shotsFiredMessage) {
-        if (!shotsFired[id]) {
+        if (!state.shotsFired[id]) {
           receiveShotInfo(data.gamestate.shotsFiredMessage[id]);
-          shotsFired[id] = true;
+          state.shotsFired[id] = true;
           setTimeout(function() {
-            delete shotsFired[id];
+            delete state.shotsFired[id];
           }, 1000);
         }
       }
       updatePlayers(data.gamestate.players);
-      last_state = data.gamestate;
+      state.lastState = data.gamestate;
       break;
   }
 };
 socket.onopen = function() {
-  connected = true;
+  state.connected = true;
 };
 
 // Call onopen directly if socket is already open
 if (socket.readyState == WebSocket.OPEN) socket.onopen();
 
 function updatePlayers(playerJSON) {
-  for (var id in playerIDs) {
-    playerIDs[id] = false;
+  for (var id in state.playerIDs) {
+    state.playerIDs[id] = false;
   }
   for (var id in playerJSON) {
-    if (id == myID && started) continue;
-    else if (id == myID && (connectionAccepted || respawning)) {
+    if (id == state.myID && state.started) continue;
+    else if (id == state.myID && (state.connectionAccepted || state.respawning)) {
       player.getObject()
         .position.set(
           playerJSON[id].position.x,
           playerJSON[id].position.y,
           playerJSON[id].position.z
         );
-      started = true;
-      if (respawning) {
-        respawning = false;
-        started = true;
+      state.started = true;
+      if (state.respawning) {
+        state.respawning = false;
+        state.started = true;
       }
     }
 
-    if (id == myID) {
+    if (id == state.myID) {
       continue;
     }
-    if (playerIDs[id] == null) {
-      playerIDs[id] = true;
-      players[id] = new THREE.Object3D;
-      players[id] = createPlayer(
+    if (state.playerIDs[id] == null) {
+      state.playerIDs[id] = true;
+      state.players[id] = new THREE.Object3D;
+      state.players[id] = createPlayer(
         playerJSON[id].position.x,
         playerJSON[id].position.y,
         playerJSON[id].position.z,
@@ -99,61 +102,61 @@ function updatePlayers(playerJSON) {
       var widthHalf = width / 2,
         heightHalf = height / 2;
 
-      var pos = players[id].position.clone();
+      var pos = state.players[id].position.clone();
       pos.project(camera);
       pos.x = (pos.x * widthHalf) + widthHalf;
       pos.y = -(pos.y * heightHalf) + heightHalf;
 
-      tag_divs[id] = document.createElement('div');
-      document.body.appendChild(tag_divs[id]);
-      tag_divs[id].className = 'tag';
-      tag_divs[id].innerHTML = playerJSON[id].name;
+      state.tagDivs[id] = document.createElement('div');
+      document.body.appendChild(state.tagDivs[id]);
+      state.tagDivs[id].className = 'tag';
+      state.tagDivs[id].innerHTML = playerJSON[id].name;
 
-      tag_divs[id].left = pos.x;
-      tag_divs[id].top = pos.y;
+      state.tagDivs[id].left = pos.x;
+      state.tagDivs[id].top = pos.y;
 
-      scene.add(players[id]);
+      scene.add(state.players[id]);
     } else {
-      playerIDs[id] = true;
+      state.playerIDs[id] = true;
 
-      if (!players[id])
-        console.log("error: id: " + id + "   players: " + players);
+      if (!state.players[id])
+        console.log("error: id: " + id + "   players: " + state.players);
 
-      players[id].position.set(
+      state.players[id].position.set(
         playerJSON[id].position.x,
         playerJSON[id].position.y,
         playerJSON[id].position.z
       );
-      players[id].rotation.set(
+      state.players[id].rotation.set(
         playerJSON[id].rotation.x,
         playerJSON[id].rotation.y,
         playerJSON[id].rotation.z
       );
-      players[id].matrixWorldNeedsUpdate = true;
+      state.players[id].matrixWorldNeedsUpdate = true;
     }
   }
-  for (var id in playerIDs) {
-    if (playerIDs[id] === false) {
-      scene.remove(players[id]);
-      playerIDs[id] = null;
-      players[id] = null;
+  for (var id in state.playerIDs) {
+    if (state.playerIDs[id] === false) {
+      scene.remove(state.players[id]);
+      state.playerIDs[id] = null;
+      state.players[id] = null;
     }
   }
 }
 
 function joinGame(player) {
-  if (!connected) {
+  if (!state.connected) {
     return;
   }
   var message = {};
   var rotation = camera.getWorldRotation();
   message.type = "join";
-  message.name = myName;
+  message.name = state.myName;
   socket.send(JSON.stringify(message));
 }
 
 function sendUpdates(player) {
-  if (!connected) {
+  if (!state.connected) {
     return;
   }
   var message = {};
@@ -174,11 +177,12 @@ function sendUpdates(player) {
 }
 
 function receiveShotInfo(message) {
-  if (message.shooter == myID) {
+  if (message.shooter === state.myID) {
     if (message.hit != null) {
-      plog_list.push('You killed ' + last_state.players[message.hit]['name']);
+      state.toastQueue.push('You killed ' + state.lastState.players[message.hit]
+        ['name']);
       setTimeout(function() {
-        plog_list.shift();
+        state.toastQueue.shift();
       }, 5000);
     }
     return;
@@ -194,11 +198,11 @@ function receiveShotInfo(message) {
     var hitposition;
     var direction = new THREE.Vector3();
 
-    if (message.hit == myID) {
+    if (message.hit == state.myID) {
       hitposition = player.getObject()
         .position;
     } else {
-      hitposition = players[message.hit].position;
+      hitposition = state.players[message.hit].position;
     }
     direction.x = hitposition.x - origin.x;
     direction.y = hitposition.y - origin.y;
@@ -215,19 +219,19 @@ function receiveShotInfo(message) {
     }
 
     //add kill to log
-    var killername = last_state.players[message.shooter]['name'];
-    if (killername == myName) killername = "you"
-    var victimname = last_state.players[message.hit]['name'];
-    if (victimname == myName) victimname = "you"
-    plog_list.push(killername + ' killed ' + victimname);
+    var killername = state.lastState.players[message.shooter]['name'];
+    if (killername === state.myName) killername = "you";
+    var victimname = state.lastState.players[message.hit]['name'];
+    if (victimname == state.myName) victimname = "you";
+    state.toastQueue.push(killername + ' killed ' + victimname);
     setTimeout(function() {
-      plog_list.shift();
+      state.toastQueue.shift();
     }, 5000);
   } else {
     var direction = new THREE.Vector3();
-    direction.x = players[message.shooter].getWorldDirection.x;
-    direction.y = players[message.shooter].getWorldDirection.y;
-    direction.z = players[message.shooter].getWorldDirection.z;
+    direction.x = state.players[message.shooter].getWorldDirection.x;
+    direction.y = state.players[message.shooter].getWorldDirection.y;
+    direction.z = state.players[message.shooter].getWorldDirection.z;
     raycaster.set(origin, direction.normalize());
     intersects = raycaster.intersectObjects(scene.children, true);
     for (var i = 0; i < intersects.length; i++) {
@@ -266,7 +270,7 @@ function receiveShotInfo(message) {
   }
   scene.add(laserContainer);
   if (message.hit != null) {
-    if (message.hit == myID) {
+    if (message.hit === state.myID) {
       respawn();
     } else {
       resetPlayer(message.hit);
@@ -281,7 +285,7 @@ function receiveShotInfo(message) {
 function sendShotInfo(player, distance, hitID) {
   var message = {};
   message.type = "shoot";
-  message.shooter = myID;
+  message.shooter = state.myID;
   message.distance = distance;
   if (hitID && hitID >= 0) {
     message.hit = hitID;
@@ -343,7 +347,7 @@ if (havePointerLock) {
   var pointerlockchange = function(event) {
     if (document.pointerLockElement === element || document.mozPointerLockElement ===
       element || document.webkitPointerLockElement === element) {
-      if (!started)
+      if (!state.started)
         joinGame();
 
       controlsEnabled = true;
@@ -370,9 +374,7 @@ if (havePointerLock) {
   };
 
   var pointerlockerror = function(event) {
-
     instructions.style.display = '';
-
   };
 
   // Hook pointer lock state change events
@@ -396,26 +398,27 @@ if (havePointerLock) {
   }
 
   function playGame() {
-    nameChosen = true;
-    myName = nameField.value;
+    state.nameChosen = true;
+    state.myName = nameField.value;
     startGameEvent();
   }
 
   function startGameEvent(event) {
-    if (!nameChosen) {
+    if (!state.nameChosen) {
       return;
     }
 
-    if (playerDead && canRespawn) {
-      playerDead = false;
+    if (state.playerDead && state.canRespawn) {
+      state.playerDead = false;
       blocker.style.display = 'none';
       askToRespawn();
     }
     instructions.style.display = 'none';
     countdown.style.display = 'none';
     // Ask the browser to lock the pointer
-    element.requestPointerLock = element.requestPointerLock || element.mozRequestPointerLock ||
-      element.webkitRequestPointerLock;
+    element.requestPointerLock = (element.requestPointerLock ||
+                                  element.mozRequestPointerLock ||
+                                  element.webkitRequestPointerLock);
     element.requestPointerLock();
   }
 
@@ -446,7 +449,7 @@ function init() {
   lastShot = -5.1;
   now = clock2.getElapsedTime();
   camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight,
-    1, boundaryRadius * 4);
+    1, BOUNDRY_RADIUS * 4);
   center.x = 0;
   center.y = 0;
   scene = new THREE.Scene();
@@ -470,7 +473,7 @@ function init() {
 
   var astroidGeometry1 = new THREE.SphereGeometry(1, 3, 3);
   var astroidMesh1 = new THREE.MeshBasicMaterial({
-    color: 0x8B7355,
+    color: 0x8B7355
   });
   numAstroids = 5000;
   var astroids = new Array(numAstroids);
@@ -479,12 +482,12 @@ function init() {
       astroidGeometry1,
       astroidMesh1
     );
-    var upper = boundaryRadius;
-    var lower = -boundaryRadius;
+    var upper = BOUNDRY_RADIUS;
+    var lower = -BOUNDRY_RADIUS;
     var rx = (Math.random() * (upper - lower) + lower);
     var ry = (Math.random() * (upper - lower) + lower);
     var rz = (Math.random() * (upper - lower) + lower);
-    astroids[i].position.set(rx, ry, rz)
+    astroids[i].position.set(rx, ry, rz);
     scene.add(astroids[i]);
   }
 
@@ -500,7 +503,7 @@ function init() {
   scene.add(player.getObject());
 
   var onKeyDown = function(event) {
-    if (!started || playerDead) {
+    if (!state.started || state.playerDead) {
       startGameEvent(event);
     }
     switch (event.keyCode) {
@@ -540,7 +543,7 @@ function init() {
   leaderboard.innerHTML = "whatever";
   plog.innerHTML = "whatever";
   leader_list = [];
-  plog_list = [];
+  state.toastQueue = [];
   audio = new Audio(static_root + 'laser1s.mp3');
 }
 
@@ -566,13 +569,13 @@ function animate() {
   delta = clock.getDelta();
   requestAnimationFrame(animate);
 
-  if (started && !playerDead) {
+  if (state.started && !state.playerDead) {
     position = player.getObject()
       .position;
     moveDirection = camera.getWorldDirection();
     cameraRotation = camera.getWorldRotation();
 
-    if (started) {
+    if (state.started) {
       if (boost && !boostLock) {
         player.getObject()
           .position.set(
@@ -634,7 +637,7 @@ function animate() {
           intersects[i].object.material.color.set(0xff0000);
       }
       shoot = false;
-      var distance = boundaryRadius * 2;
+      var distance = BOUNDRY_RADIUS * 2;
       var collision = false;
       if (intersects.length > 0) {
         for (var i = 0; i < intersects.length && !collision; i++) {
@@ -677,7 +680,7 @@ function animate() {
       object3d.matrixWorldNeedsUpdate = true;
       laserContainer.add(object3d);
       if (distance < 1000) {
-        var laserCooked = new THREEx.LaserCooked(laserBeam, laserContainer)
+        var laserCooked = new THREEx.LaserCooked(laserBeam, laserContainer);
         laserCooked.update();
       }
       scene.add(laserContainer);
@@ -688,24 +691,24 @@ function animate() {
     }
   }
 
-  if (counter % 5 == 0 && started) {
+  if (counter % 5 === 0 && state.started) {
     sendUpdates(player.getObject());
   }
   counter = counter + 1;
 
   onRenderFcts.forEach(function(updateFn) {
-    updateFn()
+    updateFn();
   });
 
   //update player log
-  plog.innerHTML = plog_list.join("<br/>");
+  plog.innerHTML = state.toastQueue.join("<br/>");
 
   //update leaderboard
   var leaderboard_list = [];
-  if (last_state != null) {
-    for (var p in last_state.players) {
-      var cscore = last_state.players[p]['score'];
-      var cname = last_state.players[p]['name'];
+  if (state.lastState != null) {
+    for (var p in state.lastState.players) {
+      var cscore = state.lastState.players[p]['score'];
+      var cname = state.lastState.players[p]['name'];
       if (cscore >= 0) {
         leaderboard_list.push([cname, cscore]);
       }
@@ -735,25 +738,26 @@ function animate() {
   var frustum = new THREE.Frustum();
   frustum.setFromMatrix(new THREE.Matrix4()
     .multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-  for (var id in playerIDs) {
+  for (var id in state.playerIDs) {
     //check if within camera's view:
-    if (players[id] != null && frustum.containsPoint(players[id].position)) {
-      tag_divs[id].style.visibility = 'visible';
+    let inFieldOfView = frustum.containsPoint(state.players[id].position);
+    if (state.players[id] != null && inFieldOfView) {
+      state.tagDivs[id].style.visibility = 'visible';
 
       var width = window.innerWidth,
         height = window.innerHeight;
       var widthHalf = width / 2,
         heightHalf = height / 2;
 
-      var pos = players[id].position.clone();
+      var pos = state.players[id].position.clone();
       pos.project(camera);
       pos.x = (pos.x * widthHalf) + widthHalf;
       pos.y = -(pos.y * heightHalf) + heightHalf;
 
-      tag_divs[id].style.left = pos.x + 'px';
-      tag_divs[id].style.top = pos.y - 10 + 'px';
+      state.tagDivs[id].style.left = pos.x + 'px';
+      state.tagDivs[id].style.top = pos.y - 10 + 'px';
     } else {
-      tag_divs[id].style.visibility = 'hidden';
+      state.tagDivs[id].style.visibility = 'hidden';
     }
 
   }
@@ -770,7 +774,7 @@ function playAudio() {
 
 function checkBoundaries() {
   var newX, newY, newZ;
-  var radius = boundaryRadius;
+  var radius = BOUNDRY_RADIUS;
   var offset = 500;
   if (player.getObject()
     .position.x < -radius) {
@@ -809,8 +813,8 @@ function checkBoundaries() {
 }
 
 function respawn() {
-  playerDead = true;
-  canRespawn = false;
+  state.playerDead = true;
+  state.canRespawn = false;
   deathblocker.style.visibility = 'visible';
   countdown.style.display = '';
   blocker.style["background-color"] = 'rgba(0,0,0,1)';
@@ -831,8 +835,8 @@ function respawn() {
     blocker.style.display = 'box';
     instructions.style.display = '';
     blocker.style["background-color"] = 'rgba(0,0,0,0.5)';
-    canRespawn = true;
-    started = false;
+    state.canRespawn = true;
+    state.started = false;
   }, 3000);
 }
 
@@ -844,18 +848,18 @@ function askToRespawn() {
 }
 
 function respawnSuccess() {
-  respawning = true;
+  state.respawning = true;
 }
 
 function resetPlayer(id) {
   setTimeout(function() {
-    if (players[id]) {
-      players[id].position.set(-11000, -11000, -11000);
+    if (state.players[id]) {
+      state.players[id].position.set(-11000, -11000, -11000);
     }
   }, 100);
   setTimeout(function() {
-    if (players[id]) {
-      players[id].children[0].children[0].material.color.set(0x156289);
+    if (state.players[id]) {
+      state.players[id].children[0].children[0].material.color.set(0x156289);
     }
   }, 2000);
 }
